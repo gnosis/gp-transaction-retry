@@ -40,7 +40,8 @@ pub fn enforce_minimum_increase_and_cap(
     stream.filter_map(move |gas_price| {
         assert!(gas_price.is_finite() && gas_price >= 0.0);
         let gas_price = new_gas_price_estimate(
-            last_used_gas_price.unwrap_or_default(),
+            // Using a negative value in case no previous is known so that a new price of 0 would still be emitted as a new valid value
+            last_used_gas_price.unwrap_or(-1.0),
             gas_price,
             gas_price_cap,
         );
