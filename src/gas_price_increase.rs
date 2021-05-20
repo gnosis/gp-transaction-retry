@@ -42,7 +42,7 @@ pub fn enforce_minimum_increase_and_cap(
         let gas_price = if let Some(previous) = last_used_gas_price {
             new_gas_price_estimate(previous, gas_price, gas_price_cap)
         } else {
-            Some(gas_price)
+            Some(gas_price.min(gas_price_cap))
         };
         if let Some(gas_price) = gas_price {
             last_used_gas_price = Some(gas_price);
@@ -83,5 +83,14 @@ mod tests {
         let stream = enforce_minimum_increase_and_cap(2.0, input_stream);
         let result = stream.collect::<Vec<_>>().now_or_never().unwrap();
         assert_eq!(result, &[0.0, 1.0, 2.0]);
+    }
+
+    #[test]
+    #[allow(clippy::float_cmp)]
+    fn stream_enforces_cap_on_first_item() {
+        let input_stream = futures::stream::iter(vec![1500.0]);
+        let stream = enforce_minimum_increase_and_cap(500.0, input_stream);
+        let result = stream.collect::<Vec<_>>().now_or_never().unwrap();
+        assert_eq!(result, &[500.0]);
     }
 }
