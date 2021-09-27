@@ -10,7 +10,7 @@ use futures::{
     future::FutureExt as _,
     stream::{Stream, StreamExt as _},
 };
-use gas_estimation::GasPrice;
+use gas_estimation::EstimatedGasPrice;
 use std::future::Future;
 
 /// Implementation agnostic abstraction over sending a specific ethereum transaction.
@@ -20,7 +20,7 @@ pub trait TransactionSending: Send {
     /// The result of sending the transaction.
     type Output: TransactionResult;
     /// Send the transaction.
-    async fn send(&self, gas_price: GasPrice) -> Self::Output;
+    async fn send(&self, gas_price: EstimatedGasPrice) -> Self::Output;
 }
 
 /// Trait that the result of sent transactions must implement.
@@ -54,7 +54,7 @@ pub enum RetryResult<TransactionResult, CancellationResult> {
 pub async fn retry<TransactionSender, CancellationSender>(
     transaction_sender: TransactionSender,
     cancel_after: impl Future<Output = CancellationSender>,
-    gas_price_stream: impl Stream<Item = GasPrice>,
+    gas_price_stream: impl Stream<Item = EstimatedGasPrice>,
 ) -> Option<RetryResult<TransactionSender::Output, CancellationSender::Output>>
 where
     TransactionSender: TransactionSending,
@@ -115,8 +115,8 @@ mod tests {
     use super::*;
     use futures::{future, stream};
 
-    fn legacy_gas_price(legacy: f64) -> GasPrice {
-        GasPrice {
+    fn legacy_gas_price(legacy: f64) -> EstimatedGasPrice {
+        EstimatedGasPrice {
             legacy,
             ..Default::default()
         }

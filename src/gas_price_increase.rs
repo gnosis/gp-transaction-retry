@@ -1,24 +1,24 @@
 //! Transactions with the same nonce must have a minimum gas price increase.
 
 use futures::stream::{Stream, StreamExt as _};
-use gas_estimation::GasPrice;
+use gas_estimation::EstimatedGasPrice;
 
 /// openethereum requires that the gas price of the resubmitted transaction has increased by at
 /// least 12.5%.
 const MIN_GAS_PRICE_INCREASE_FACTOR: f64 = 1.125 * (1.0 + f64::EPSILON);
 
 /// The minimum gas price that allows a new transaction to replace an older one.
-pub fn minimum_increase(previous_gas_price: GasPrice) -> GasPrice {
+pub fn minimum_increase(previous_gas_price: EstimatedGasPrice) -> EstimatedGasPrice {
     previous_gas_price
         .bump_cap(MIN_GAS_PRICE_INCREASE_FACTOR)
         .ceil_cap()
 }
 
 fn new_gas_price_estimate(
-    previous_gas_price: GasPrice,
-    new_gas_price: GasPrice,
+    previous_gas_price: EstimatedGasPrice,
+    new_gas_price: EstimatedGasPrice,
     max_gas_price: f64,
-) -> Option<GasPrice> {
+) -> Option<EstimatedGasPrice> {
     let min_gas_price = minimum_increase(previous_gas_price);
     if min_gas_price.cap() > max_gas_price {
         return None;
@@ -42,8 +42,8 @@ fn new_gas_price_estimate(
 /// Panics if gas price is negative or not finite.
 pub fn enforce_minimum_increase_and_cap(
     gas_price_cap: f64,
-    stream: impl Stream<Item = GasPrice>,
-) -> impl Stream<Item = GasPrice> {
+    stream: impl Stream<Item = EstimatedGasPrice>,
+) -> impl Stream<Item = EstimatedGasPrice> {
     let mut last_used_gas_price = Default::default();
     stream.filter_map(move |gas_price| {
         assert!(gas_price.cap().is_finite() && gas_price.cap() >= 0.0);
@@ -63,10 +63,10 @@ pub fn enforce_minimum_increase_and_cap(
 mod tests {
     use super::*;
     use futures::FutureExt;
-    use gas_estimation::GasPrice;
+    use gas_estimation::EstimatedGasPrice;
 
-    fn legacy_gas_price(legacy: f64) -> GasPrice {
-        GasPrice {
+    fn legacy_gas_price(legacy: f64) -> EstimatedGasPrice {
+        EstimatedGasPrice {
             legacy,
             ..Default::default()
         }
