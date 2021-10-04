@@ -20,15 +20,15 @@ fn new_gas_price_estimate(
     max_gas_price: f64,
 ) -> Option<EstimatedGasPrice> {
     let min_gas_price = minimum_increase(previous_gas_price);
-    if min_gas_price.estimate() > max_gas_price {
+    if min_gas_price.effective_gas_price() > max_gas_price {
         return None;
     }
-    if new_gas_price.estimate() <= previous_gas_price.estimate() {
+    if new_gas_price.effective_gas_price() <= previous_gas_price.effective_gas_price() {
         // Gas price has not increased.
         return None;
     }
     // Gas price could have increased but doesn't respect minimum increase so adjust it up.
-    let new_price = if min_gas_price.estimate() >= new_gas_price.estimate() {
+    let new_price = if min_gas_price.effective_gas_price() >= new_gas_price.effective_gas_price() {
         min_gas_price
     } else {
         new_gas_price
@@ -46,7 +46,9 @@ pub fn enforce_minimum_increase_and_cap(
 ) -> impl Stream<Item = EstimatedGasPrice> {
     let mut last_used_gas_price = Default::default();
     stream.filter_map(move |gas_price| {
-        assert!(gas_price.estimate().is_finite() && gas_price.estimate() >= 0.0);
+        assert!(
+            gas_price.effective_gas_price().is_finite() && gas_price.effective_gas_price() >= 0.0
+        );
         let gas_price = if let Some(previous) = last_used_gas_price {
             new_gas_price_estimate(previous, gas_price, gas_price_cap)
         } else {
