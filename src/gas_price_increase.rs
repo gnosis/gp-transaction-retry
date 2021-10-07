@@ -20,15 +20,15 @@ fn new_gas_price_estimate(
     max_gas_price: f64,
 ) -> Option<EstimatedGasPrice> {
     let min_gas_price = minimum_increase(previous_gas_price);
-    if min_gas_price.effective_gas_price() > max_gas_price {
+    if min_gas_price.cap() > max_gas_price {
         return None;
     }
-    if new_gas_price.effective_gas_price() <= previous_gas_price.effective_gas_price() {
+    if new_gas_price.cap() <= previous_gas_price.cap() {
         // Gas price has not increased.
         return None;
     }
     // Gas price could have increased but doesn't respect minimum increase so adjust it up.
-    let new_price = if min_gas_price.effective_gas_price() >= new_gas_price.effective_gas_price() {
+    let new_price = if min_gas_price.cap() >= new_gas_price.cap() {
         min_gas_price
     } else {
         new_gas_price
