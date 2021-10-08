@@ -23,15 +23,19 @@ fn new_gas_price_estimate(
     if min_gas_price.cap() > max_gas_price {
         return None;
     }
-    if new_gas_price.cap() <= previous_gas_price.cap() {
+    if new_gas_price.cap() <= previous_gas_price.cap()
+        || new_gas_price.tip() <= previous_gas_price.tip()
+    {
         // Gas price has not increased.
         return None;
     }
     // Gas price could have increased but doesn't respect minimum increase so adjust it up.
-    let new_price = if min_gas_price.cap() >= new_gas_price.cap() {
-        min_gas_price
-    } else {
+    let new_price = if new_gas_price.cap() >= min_gas_price.cap()
+        && new_gas_price.tip() >= min_gas_price.tip()
+    {
         new_gas_price
+    } else {
+        min_gas_price
     };
 
     Some(new_price.limit_cap(max_gas_price))
@@ -335,7 +339,7 @@ mod tests {
             &[
                 eip1559_gas_price(0.0, 0.0, 1.0),
                 eip1559_gas_price(1.0, 0.5, 1.0),
-                eip1559_gas_price(2.0, 1.0, 1.0)
+                eip1559_gas_price(2.0, 2.0, 1.0)
             ]
         );
     }
