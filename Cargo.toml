@@ -6,6 +6,7 @@ edition = "2018"
 [dependencies]
 async-trait = "0.1"
 futures = { version = "0.3", default-features = false, features = ["std", "async-await"] }
+gas-estimation = { git = "https://github.com/gnosis/gp-gas-estimation.git", tag = "v0.3.4" }
 
 [dev-dependencies]
 mockall = "0.8"

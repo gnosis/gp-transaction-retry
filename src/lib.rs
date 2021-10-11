@@ -10,6 +10,7 @@ use futures::{
     future::FutureExt as _,
     stream::{Stream, StreamExt as _},
 };
+use gas_estimation::EstimatedGasPrice;
 use std::future::Future;
 
 /// Implementation agnostic abstraction over sending a specific ethereum transaction.
@@ -19,7 +20,7 @@ pub trait TransactionSending: Send {
     /// The result of sending the transaction.
     type Output: TransactionResult;
     /// Send the transaction.
-    async fn send(&self, gas_price: f64) -> Self::Output;
+    async fn send(&self, gas_price: EstimatedGasPrice) -> Self::Output;
 }
 
 /// Trait that the result of sent transactions must implement.
@@ -53,7 +54,7 @@ pub enum RetryResult<TransactionResult, CancellationResult> {
 pub async fn retry<TransactionSender, CancellationSender>(
     transaction_sender: TransactionSender,
     cancel_after: impl Future<Output = CancellationSender>,
-    gas_price_stream: impl Stream<Item = f64>,
+    gas_price_stream: impl Stream<Item = EstimatedGasPrice>,
 ) -> Option<RetryResult<TransactionSender::Output, CancellationSender::Output>>
 where
     TransactionSender: TransactionSending,
@@ -70,7 +71,7 @@ where
     // case because we do not know which transactions will complete or fail or in which order we
     // observe completion.
     let mut first_match = FirstMatchOrLast::new(|result: &RetryResult<_, _>| result.was_mined());
-    let mut last_used_gas_price = 0.0;
+    let mut last_used_gas_price = Default::default();
     let cancellation_sender = loop {
         // Use select_biased over select because it makes tests deterministic. for real use doesn't
         // matter because the futures will almost never become ready at the same time.
@@ -87,7 +88,7 @@ where
     // Need to do this so that compiler doesn't complain that first_match gets dropped first.
     let (cancellation_sender, first_match) = (cancellation_sender, first_match);
 
-    let never_submitted_solution = last_used_gas_price == 0.0;
+    let never_submitted_solution = last_used_gas_price == Default::default();
     if never_submitted_solution {
         return None;
     }
@@ -114,6 +115,13 @@ mod tests {
     use super::*;
     use futures::{future, stream};
 
+    fn legacy_gas_price(legacy: f64) -> EstimatedGasPrice {
+        EstimatedGasPrice {
+            legacy,
+            ..Default::default()
+        }
+    }
+
     #[test]
     fn nonce_error_ignored() {
         let mut transaction_sender = MockTransactionSending::new();
@@ -132,7 +140,11 @@ mod tests {
             future::ready(false).boxed()
         });
 
-        let result = retry(transaction_sender, cancel_after, stream::repeat(1.0));
+        let result = retry(
+            transaction_sender,
+            cancel_after,
+            stream::repeat(legacy_gas_price(1.0)),
+        );
         let result = result.now_or_never().unwrap();
         assert!(matches!(result, Some(RetryResult::Submitted(true))));
     }
@@ -163,7 +175,11 @@ mod tests {
         }
         .boxed();
 
-        let result = retry(transaction_sender, cancel_after, stream::repeat(1.0));
+        let result = retry(
+            transaction_sender,
+            cancel_after,
+            stream::repeat(legacy_gas_price(1.0)),
+        );
         let result = result.now_or_never().unwrap();
         assert!(matches!(result, Some(RetryResult::Submitted(true))));
     }
@@ -188,7 +204,11 @@ mod tests {
         }
         .boxed();
 
-        let result = retry(transaction_sender, cancel_after, stream::repeat(1.0));
+        let result = retry(
+            transaction_sender,
+            cancel_after,
+            stream::repeat(legacy_gas_price(1.0)),
+        );
         let result = result.now_or_never().unwrap();
         assert!(matches!(result, Some(RetryResult::Cancelled(true))));
     }
